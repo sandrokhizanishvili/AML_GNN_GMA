@@ -1,1 +1,1 @@
-# AML_GNN_GAM
+# AML_GNN_GMA
