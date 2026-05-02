@@ -16,7 +16,7 @@ This project addresses the AML challenge by leveraging the relational structure 
 1. A **Self-Supervised Link Prediction model** (inspired by LaundroGraph [1]), which learns to reconstruct the graph's structural patterns without access to labels, flagging anomalies as deviations from learned normalcy.
 2. A **Supervised Edge Classification model**, which is explicitly trained to classify each transaction edge as *Laundering* or *Normal* using ground-truth labels and a heavily weighted loss function.
 
-Both models are evaluated on the SAML-D (Synthetic Anti-Money Laundering Dataset) [2], which contains 28 distinct behavioral typologies and a realistic laundering rate of just **0.1%**. The central finding is that the **Supervised Edge Classification model offers dramatically superior operational efficiency** for front-line detection—achieving a **0.963 ROC AUC**, capturing approximately **78% of all laundering within the top 5% of flagged transactions**, and producing near-perfect class separation in the learned embedding space. The Self-Supervised model, while less precise, demonstrates unique value as a complementary discovery tool for detecting structurally anomalous typologies (e.g., Smurfing) without any dependence on historical labels.
+Both models are evaluated on the SAML-D (Synthetic Anti-Money Laundering Dataset) [2], which contains 28 distinct behavioral typologies and a realistic laundering rate of just **0.1%**. The central finding is that the **Supervised Edge Classification model offers dramatically superior operational efficiency** for front-line detection - achieving a **0.963 ROC AUC**, capturing approximately **78% of all laundering within the top 5% of flagged transactions**, and producing near-perfect class separation in the learned embedding space. The Self-Supervised model, while less precise, demonstrates unique value as a complementary discovery tool for detecting structurally anomalous typologies (e.g., Smurfing) without any dependence on historical labels.
 
 ---
 
@@ -57,12 +57,12 @@ The financial ecosystem was modeled as a directed, heterogeneous bipartite graph
 | Total Transaction Nodes | ~5.2M |
 | Graph Ratio | 1 Customer ≈ 8 Transactions |
 | Training Edges (total) | ~4.5M |
-| — Message Passing (MP) edges | ~2.3M (50%) |
-| — Supervision edges | ~1.4M (30%) |
-| — Validation edges | ~0.9M (20%) |
+|  -  Message Passing (MP) edges | ~2.3M (50%) |
+|  -  Supervision edges | ~1.4M (30%) |
+|  -  Validation edges | ~0.9M (20%) |
 | Test Edges | ~0.7M |
 
-The 50/30/20 split of training edges is architecturally critical. **Message Passing (MP) edges** provide the structural scaffold during GNN computation—they are used exclusively for neighborhood aggregation and are never directly supervised. **Supervision edges** are the edges on which the loss function is computed and gradients flow. **Validation edges** are used for hyperparameter tuning and early stopping. This separation prevents the model from trivially memorizing the graph structure it uses for message passing.
+The 50/30/20 split of training edges is architecturally critical. **Message Passing (MP) edges** provide the structural scaffold during GNN computation - they are used exclusively for neighborhood aggregation and are never directly supervised. **Supervision edges** are the edges on which the loss function is computed and gradients flow. **Validation edges** are used for hyperparameter tuning and early stopping. This separation prevents the model from trivially memorizing the graph structure it uses for message passing.
 
 ---
 
@@ -85,8 +85,8 @@ For each window, the following feature families were extracted:
 **Anomaly Indicators (per window):**
 - **Structuring Detection:** Count of transactions with amounts in the $[9{,}000, 10{,}000)$ range, a classic indicator of deliberate threshold avoidance.
 - **Cash Dependency:** `Cash_Volume` and `Cash_Ratio`, computed by filtering for `Payment_type ∈ {Cash Deposit, Cash Withdrawal}`. Empirical analysis revealed that cash-involved transactions exhibit a ~6.5× higher laundering rate than non-cash transactions.
-- **Cross-Border Exposure:** `Cross_Border_Count_Sent`, `Cross_Border_Count_Rec`—counts of transactions where `Sender_bank_location ≠ Receiver_bank_location`.
-- **High-Risk Jurisdiction Density:** `High_Risk_Count`—interactions involving jurisdictions flagged as high-risk (`Mexico, Turkey, Morocco, UAE`). Analysis showed a ~5.7× elevated laundering rate for transactions involving these jurisdictions.
+- **Cross-Border Exposure:** `Cross_Border_Count_Sent`, `Cross_Border_Count_Rec` - counts of transactions where `Sender_bank_location ≠ Receiver_bank_location`.
+- **High-Risk Jurisdiction Density:** `High_Risk_Count` - interactions involving jurisdictions flagged as high-risk (`Mexico, Turkey, Morocco, UAE`). Analysis showed a ~5.7× elevated laundering rate for transactions involving these jurisdictions.
 
 **Temporal Latency Features:**
 These features capture the *speed* of fund movement, which is a hallmark of money laundering:
@@ -119,7 +119,7 @@ Both models share an identical GAT-based encoder but diverge in their decoder de
 
 The encoder's role is to project each node into a shared $d=64$ dimensional latent space, producing embeddings $z_c \in \mathbb{R}^{64}$ for customers and $z_t \in \mathbb{R}^{64}$ for transactions.
 
-**Step A — Dimensionality Alignment via Linear Projection:**
+**Step A  -  Dimensionality Alignment via Linear Projection:**
 The heterogeneous nature of the graph introduces a dimensionality mismatch: customer nodes have 123 input features while transaction nodes have 49. Before any graph convolution can occur, both node types must be mapped into a common representational space. This is achieved through dedicated linear projection layers:
 
 ```python
@@ -130,15 +130,15 @@ self.tx_lin   = Linear(-1, hidden_channels)   #  49 → 64
 
 The projected outputs $x_c^{\text{proj}}, x_t^{\text{proj}} \in \mathbb{R}^{64}$ represent the node's *intrinsic features* independent of any graph structure. This projection is critical: it provides the "self-loop" content for the subsequent residual connection.
 
-**Step B — Graph Attention Convolution (2-Layer GAT):**
+**Step B  -  Graph Attention Convolution (2-Layer GAT):**
 The projected features are passed through two heterogeneous GAT layers wrapped in `HeteroConv`, which independently parameterizes message passing for each edge type (`sends`, `receives`):
 
-- **Layer 1 (Expansion):** `GATConv(64, 64, heads=2, add_self_loops=False)` — Applies multi-head attention (2 heads) and *concatenates* the head outputs, expanding the representation to $64 \times 2 = 128$ dimensions. The `add_self_loops=False` flag is mandatory for bipartite graphs where source and target node types differ.
-- **Layer 2 (Compression):** `GATConv(128, 64, heads=2, add_self_loops=False, concat=False)` — Applies 2-head attention but *averages* the heads (via `concat=False`), compressing back to 64 dimensions.
+- **Layer 1 (Expansion):** `GATConv(64, 64, heads=2, add_self_loops=False)`  -  Applies multi-head attention (2 heads) and *concatenates* the head outputs, expanding the representation to $64 \times 2 = 128$ dimensions. The `add_self_loops=False` flag is mandatory for bipartite graphs where source and target node types differ.
+- **Layer 2 (Compression):** `GATConv(128, 64, heads=2, add_self_loops=False, concat=False)`  -  Applies 2-head attention but *averages* the heads (via `concat=False`), compressing back to 64 dimensions.
 
 The attention mechanism learns *which neighbors* are most informative for each node, enabling the model to selectively attend to high-signal connections while dampening noise.
 
-> **Architectural Note — Asymmetric Message Passing (Sender Embedding Bottleneck):**
+> **Architectural Note  -  Asymmetric Message Passing (Sender Embedding Bottleneck):**
 > The two edge types are *not* symmetric reverse edges of the same relationship; they encode opposite roles within each transaction:
 > - `(customer, sends, transaction)`: source = Sender\_account → target = transaction node.
 > - `(transaction, receives, customer)`: source = transaction node → target = Receiver\_account.
@@ -148,14 +148,14 @@ The attention mechanism learns *which neighbors* are most informative for each n
 > $$z_t^{\text{GNN}} \leftarrow \text{Aggregate}\bigl(\{z_c \mid c \xrightarrow{\text{sends}} t\}\bigr)$$
 > $$z_c^{\text{GNN}} \leftarrow \text{Aggregate}\bigl(\{z_t \mid t \xrightarrow{\text{receives}} c\}\bigr)$$
 >
-> Transaction embeddings aggregate from **sender** customers only; customer embeddings aggregate from transactions in which they appear as **receiver** only. Sender customers are never the *target* of any message-passing pass — no neighborhood signal flows back into $z_c^{\text{GNN}}$ from the outgoing transactions they initiated. Their final embedding $z_c$ is therefore dominated by the residual term $x_c^{\text{proj}}$ (intrinsic features) with no structural enrichment from the transaction graph.
+> Transaction embeddings aggregate from **sender** customers only; customer embeddings aggregate from transactions in which they appear as **receiver** only. Sender customers are never the *target* of any message-passing pass  -  no neighborhood signal flows back into $z_c^{\text{GNN}}$ from the outgoing transactions they initiated. Their final embedding $z_c$ is therefore dominated by the residual term $x_c^{\text{proj}}$ (intrinsic features) with no structural enrichment from the transaction graph.
 >
 > The practical consequence is that structuring patterns (e.g., many small outgoing transactions from a single sender) and fan-out topologies are **invisible at the sender's embedding level** in the graph-structure channel. These patterns are partially recoverable through the transaction node's own raw features (amount, payment type, cyclical timing), which are fused at the edge scoring step. The concatenation decoder of the Supervised model ($z_e = z_c \| z_t$) also partially compensates: because $z_t$ encodes the transaction's intrinsic properties independently of the sender's structural role, the MLP can still learn to associate high-risk transaction characteristics with laundering labels.
 >
 > The minimal architectural fix is a third edge type `(transaction, sent\_by, customer)` with `edge_index = torch.stack([tx, src], dim=0)`, which would route transaction information back into sender embeddings and make outgoing behavior structurally visible.
 
-**Step C — Residual Connection (Cold Start Safety Net):**
-The GNN output $x^{\text{GNN}}$ captures purely *structural/neighborhood* information. For well-connected nodes, this is rich and informative. However, for cold-start nodes (new customers with zero historical edges), the GNN output is a zero vector—catastrophic for downstream prediction.
+**Step C  -  Residual Connection (Cold Start Safety Net):**
+The GNN output $x^{\text{GNN}}$ captures purely *structural/neighborhood* information. For well-connected nodes, this is rich and informative. However, for cold-start nodes (new customers with zero historical edges), the GNN output is a zero vector - catastrophic for downstream prediction.
 
 The solution is a manual residual connection that additively combines the GNN output with the original linear projection:
 
@@ -168,7 +168,7 @@ z_cust = x_gnn2['customer'] + x_cust_proj
 z_tx   = x_gnn2['transaction'] + x_tx_proj
 ```
 
-This guarantees that even a completely isolated node retains a meaningful embedding derived from its intrinsic features. The Supervised model additionally wraps this sum in `LayerNorm` for training stability — see Section 4.3.
+This guarantees that even a completely isolated node retains a meaningful embedding derived from its intrinsic features. The Supervised model additionally wraps this sum in `LayerNorm` for training stability  -  see Section 4.3.
 
 **What the Embeddings Capture:**
 The resulting $z_c$ and $z_t$ vectors encode a fusion of:
@@ -180,7 +180,7 @@ The resulting $z_c$ and $z_t$ vectors encode a fusion of:
 
 This model, inspired by Cardoso et al. [1], treats AML detection as an unsupervised anomaly detection problem: the model learns to *reconstruct* the graph, and edges it fails to predict are flagged as anomalies.
 
-**Decoder — Hadamard Product:**
+**Decoder  -  Hadamard Product:**
 The interaction between a customer $c$ and transaction $t$ is scored via element-wise multiplication (Hadamard product) followed by an MLP:
 
 $$z_e = z_c \odot z_t \in \mathbb{R}^{64}$$
@@ -201,7 +201,7 @@ During testing, the model scores each real test edge. The anomaly score is defin
 
 $$\text{AnomalyScore}_{c,t} = 1 - P(\text{link} \mid z_c, z_t)$$
 
-A high anomaly score indicates that the model finds the observed connection *structurally surprising*—the customer's embedding and the transaction's embedding are incompatible given the patterns learned from the training graph.
+A high anomaly score indicates that the model finds the observed connection *structurally surprising* - the customer's embedding and the transaction's embedding are incompatible given the patterns learned from the training graph.
 
 **Bidirectional Severing Protocol:**
 A critical implementation detail for fair evaluation: during test-time inference, the test edges themselves must be *severed* from the graph used for embedding computation (to prevent information leakage). The implementation uses a bidirectional severing strategy, computing separate embeddings with the sender-side and receiver-side test edges removed, then combining the scores.
@@ -219,7 +219,7 @@ A critical implementation detail for fair evaluation: during test-time inference
 
 This model is the primary contribution of this project. Unlike the self-supervised baseline, it is explicitly trained to classify each edge as Laundering or Normal, using ground-truth labels and a class-imbalance-aware objective.
 
-**Decoder — Concatenation + MLP:**
+**Decoder  -  Concatenation + MLP:**
 Instead of element-wise multiplication, the supervised decoder *concatenates* the customer and transaction embeddings, preserving their full individual information:
 
 $$z_e = z_c \| z_t \in \mathbb{R}^{128}$$
@@ -245,10 +245,10 @@ class LaundroGraphSupervised(torch.nn.Module):
 ```
 
 **Why Concatenation over Hadamard Product?**
-The Hadamard product is a *symmetric, restrictive* interaction function—it can only capture per-dimension correlations. Concatenation, followed by an MLP, provides a *strictly more expressive* function class: the MLP can learn arbitrary non-linear interactions between any combination of dimensions from $z_c$ and $z_t$. This expressiveness is essential for the classification task, where the model must learn to discriminate subtle patterns that distinguish laundering from legitimate transactions.
+The Hadamard product is a *symmetric, restrictive* interaction function - it can only capture per-dimension correlations. Concatenation, followed by an MLP, provides a *strictly more expressive* function class: the MLP can learn arbitrary non-linear interactions between any combination of dimensions from $z_c$ and $z_t$. This expressiveness is essential for the classification task, where the model must learn to discriminate subtle patterns that distinguish laundering from legitimate transactions.
 
-**Training Objective — Weighted Binary Cross-Entropy:**
-The extreme class imbalance (0.1% positive rate) renders standard BCE ineffective—the model could achieve 99.9% accuracy by predicting all-negative. To counteract this, we apply a massive positive class weight:
+**Training Objective  -  Weighted Binary Cross-Entropy:**
+The extreme class imbalance (0.1% positive rate) renders standard BCE ineffective - the model could achieve 99.9% accuracy by predicting all-negative. To counteract this, we apply a massive positive class weight:
 
 $$w_{\text{pos}} = \frac{N_{\text{negative}}}{N_{\text{positive}}} \approx 939.8$$
 
@@ -274,7 +274,7 @@ This weight tells the loss function: *"Missing one laundering transaction is as 
 | Optimizer | Adam | Adam |
 | Loss Function | BCE | Weighted BCE ($w=939.8$) |
 | Negative Sampling | 1:1 ratio | Disabled |
-| Regularization | — | Dropout(0.2) |
+| Regularization |  -  | Dropout(0.2) |
 | Normalization | Residual only | Residual + LayerNorm |
 | Epochs | 20 | 5 |
 
@@ -287,7 +287,7 @@ This weight tells the loss function: *"Missing one laundering transaction is as 
 - Entirely dependent on the quality and completeness of historical labels.
 - Cannot detect novel typologies absent from the training distribution.
 - Potentially vulnerable to adversarial adaptation by sophisticated launderers who evolve their behavior.
-- **Sender embedding bottleneck (graph asymmetry):** The absence of a reverse edge type `(transaction, sent_by, customer)` means sender customers receive no neighborhood enrichment from the transactions they initiate (see Section 4.1). Outgoing behavioral patterns — structuring, fan-out, rapid fund movement — are not structurally encoded in $z_c^{\text{GNN}}$ and must instead be recovered from the transaction node's raw features via the concatenation decoder. This limits the model's ability to identify launderers whose distinguishing signature is *how they send*, not *what they receive*.
+- **Sender embedding bottleneck (graph asymmetry):** The absence of a reverse edge type `(transaction, sent_by, customer)` means sender customers receive no neighborhood enrichment from the transactions they initiate (see Section 4.1). Outgoing behavioral patterns  -  structuring, fan-out, rapid fund movement  -  are not structurally encoded in $z_c^{\text{GNN}}$ and must instead be recovered from the transaction node's raw features via the concatenation decoder. This limits the model's ability to identify launderers whose distinguishing signature is *how they send*, not *what they receive*.
 
 ---
 
@@ -301,7 +301,7 @@ All results are reported on the **out-of-time Test Window (August 2023)**, compr
 |---|---|---|
 | **ROC AUC** | **0.963** | 0.669* |
 | **Avg. Precision (AP)** | 0.144 | 0.006 |
-| **MCC (@ optimal threshold)** | 0.261 | — |
+| **MCC (@ optimal threshold)** | 0.261 |  -  |
 
 *\*Self-supervised AUC varies significantly by typology (see Section 5.3).*
 
@@ -309,7 +309,7 @@ The supervised model achieves a **0.963 ROC AUC**, demonstrating near-perfect di
 
 ![alt text](image.png)
 
-### 5.2. Operational Efficiency — Recall @ Top K
+### 5.2. Operational Efficiency  -  Recall @ Top K
 
 In a real-world AML pipeline, compliance teams operate under a fixed **alert budget**: they can only review the top-K most suspicious transactions. Recall@K measures what fraction of total laundering is captured within that budget.
 
@@ -322,7 +322,7 @@ In a real-world AML pipeline, compliance teams operate under a fixed **alert bud
 | 10% | ~65,658 | 91% | 24% |
 | 30% | ~196,974 | ~100% | ~48% |
 
-**Key Insight:** The Supervised model captures **approximately 78% of all laundering transactions by reviewing just the top 5% of alerts**. The Self-Supervised model requires reviewing the **top 50%** to achieve comparable recall—an operationally impractical budget. The Self-Supervised model's top-K is polluted with "weird but legal" transactions (structural anomalies that are not criminal).
+**Key Insight:** The Supervised model captures **approximately 78% of all laundering transactions by reviewing just the top 5% of alerts**. The Self-Supervised model requires reviewing the **top 50%** to achieve comparable recall - an operationally impractical budget. The Self-Supervised model's top-K is polluted with "weird but legal" transactions (structural anomalies that are not criminal).
 
 ![alt text](image-1.png)
 
@@ -347,8 +347,8 @@ The models exhibit dramatically different detection sensitivities across launder
 - The **Supervised model achieves uniformly high AUC (0.93–0.99) across all typologies**, demonstrating that label-driven learning generalizes well within the SAML-D distribution.
 - The **Self-Supervised model exhibits massive variance** (0.44–0.91 AUC), with performance directly correlated to the *structural distinctiveness* of the typology:
   - **Smurfing (~0.91 AUC):** Creates characteristic "star" topologies (many small transactions from many accounts converging on one), which are highly anomalous structurally.
-  - **Cash Withdrawal (~0.44 AUC, below random chance):** Generates a single edge—topologically indistinguishable from a legitimate purchase. The self-supervised model has no structural signal to exploit.
-  - **Stacked Bipartite (~0.65 AUC):** Mimics legitimate payroll patterns, exposing the **Structural Mimicry Barrier**—the fundamental limitation of self-supervised approaches.
+  - **Cash Withdrawal (~0.44 AUC, below random chance):** Generates a single edge - topologically indistinguishable from a legitimate purchase. The self-supervised model has no structural signal to exploit.
+  - **Stacked Bipartite (~0.65 AUC):** Mimics legitimate payroll patterns, exposing the **Structural Mimicry Barrier** - the fundamental limitation of self-supervised approaches.
 
 ![alt text](image-3.png)
 
@@ -358,7 +358,7 @@ Stratified UMAP projections of the learned 64-dimensional transaction embeddings
 
 **Supervised Model:**
 - **Result:** Near-perfect separation. Laundering transactions (red) are pushed into a distinct, isolated cluster, far from the Normal (grey) mass.
-- **Interpretation:** The model has learned an explicit representation of "guilt"—the MLP decoder has reshaped the embedding space to maximize the margin between classes.
+- **Interpretation:** The model has learned an explicit representation of "guilt" - the MLP decoder has reshaped the embedding space to maximize the margin between classes.
 
 ![alt text](image-4.png)
 
@@ -372,9 +372,9 @@ Stratified UMAP projections of the learned 64-dimensional transaction embeddings
 
 To quantify the complementarity of the two models, we analyzed the overlap in their top-1% alert sets:
 
-- **Intersection (flagged by BOTH):** The highest-precision subset—transactions that are both structurally anomalous *and* label-predicted as laundering.
+- **Intersection (flagged by BOTH):** The highest-precision subset - transactions that are both structurally anomalous *and* label-predicted as laundering.
 - **Supervised-Only detections:** Pattern-matched crimes that look structurally normal but were flagged by label-driven classification (e.g., structurally mimetic typologies).
-- **Self-Supervised-Only detections:** Structurally anomalous transactions that the supervised model missed—potential novel typologies or adversarial behaviors not represented in the training labels.
+- **Self-Supervised-Only detections:** Structurally anomalous transactions that the supervised model missed - potential novel typologies or adversarial behaviors not represented in the training labels.
 
 | Alert Subset (Top 1% = 6,565 alerts) | Alerts | Launderers Found | Precision |
 |---|---|---|---|
@@ -382,7 +382,7 @@ To quantify the complementarity of the two models, we analyzed the overlap in th
 | Supervised Only | 6,317 | 388 | 6.1% |
 | Self-Supervised Only | 6,317 | 4 | 0.1% |
 
-The intersection is the highest-confidence tier: transactions flagged by both systems carry an 8.1% precision—more than 80× above the base rate. The Supervised model's unique detections (6.1% precision) vastly outnumber the Self-Supervised model's unique detections (0.1% precision), confirming its role as the primary engine. The Self-Supervised-Only detections, while few in number, represent structurally anomalous activity that the supervised model has not learned to recognize.
+The intersection is the highest-confidence tier: transactions flagged by both systems carry an 8.1% precision - more than 80× above the base rate. The Supervised model's unique detections (6.1% precision) vastly outnumber the Self-Supervised model's unique detections (0.1% precision), confirming its role as the primary engine. The Self-Supervised-Only detections, while few in number, represent structurally anomalous activity that the supervised model has not learned to recognize.
 
 ---
 
