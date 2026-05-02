@@ -138,6 +138,22 @@ The projected features are passed through two heterogeneous GAT layers wrapped i
 
 The attention mechanism learns *which neighbors* are most informative for each node, enabling the model to selectively attend to high-signal connections while dampening noise.
 
+> **Architectural Note — Asymmetric Message Passing (Sender Embedding Bottleneck):**
+> The two edge types are *not* symmetric reverse edges of the same relationship; they encode opposite roles within each transaction:
+> - `(customer, sends, transaction)`: source = Sender\_account → target = transaction node.
+> - `(transaction, receives, customer)`: source = transaction node → target = Receiver\_account.
+>
+> This asymmetry produces a critical information bottleneck in the message-passing schedule. `HeteroConv` propagates messages along each edge type independently:
+>
+> $$z_t^{\text{GNN}} \leftarrow \text{Aggregate}\bigl(\{z_c \mid c \xrightarrow{\text{sends}} t\}\bigr)$$
+> $$z_c^{\text{GNN}} \leftarrow \text{Aggregate}\bigl(\{z_t \mid t \xrightarrow{\text{receives}} c\}\bigr)$$
+>
+> Transaction embeddings aggregate from **sender** customers only; customer embeddings aggregate from transactions in which they appear as **receiver** only. Sender customers are never the *target* of any message-passing pass — no neighborhood signal flows back into $z_c^{\text{GNN}}$ from the outgoing transactions they initiated. Their final embedding $z_c$ is therefore dominated by the residual term $x_c^{\text{proj}}$ (intrinsic features) with no structural enrichment from the transaction graph.
+>
+> The practical consequence is that structuring patterns (e.g., many small outgoing transactions from a single sender) and fan-out topologies are **invisible at the sender's embedding level** in the graph-structure channel. These patterns are partially recoverable through the transaction node's own raw features (amount, payment type, cyclical timing), which are fused at the edge scoring step. The concatenation decoder of the Supervised model ($z_e = z_c \| z_t$) also partially compensates: because $z_t$ encodes the transaction's intrinsic properties independently of the sender's structural role, the MLP can still learn to associate high-risk transaction characteristics with laundering labels.
+>
+> The minimal architectural fix is a third edge type `(transaction, sent\_by, customer)` with `edge_index = torch.stack([tx, src], dim=0)`, which would route transaction information back into sender embeddings and make outgoing behavior structurally visible.
+
 **Step C — Residual Connection (Cold Start Safety Net):**
 The GNN output $x^{\text{GNN}}$ captures purely *structural/neighborhood* information. For well-connected nodes, this is rich and informative. However, for cold-start nodes (new customers with zero historical edges), the GNN output is a zero vector—catastrophic for downstream prediction.
 
@@ -271,6 +287,7 @@ This weight tells the loss function: *"Missing one laundering transaction is as 
 - Entirely dependent on the quality and completeness of historical labels.
 - Cannot detect novel typologies absent from the training distribution.
 - Potentially vulnerable to adversarial adaptation by sophisticated launderers who evolve their behavior.
+- **Sender embedding bottleneck (graph asymmetry):** The absence of a reverse edge type `(transaction, sent_by, customer)` means sender customers receive no neighborhood enrichment from the transactions they initiate (see Section 4.1). Outgoing behavioral patterns — structuring, fan-out, rapid fund movement — are not structurally encoded in $z_c^{\text{GNN}}$ and must instead be recovered from the transaction node's raw features via the concatenation decoder. This limits the model's ability to identify launderers whose distinguishing signature is *how they send*, not *what they receive*.
 
 ---
 
