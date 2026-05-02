@@ -16,7 +16,7 @@ This project addresses the AML challenge by leveraging the relational structure 
 1. A **Self-Supervised Link Prediction model** (inspired by LaundroGraph [1]), which learns to reconstruct the graph's structural patterns without access to labels, flagging anomalies as deviations from learned normalcy.
 2. A **Supervised Edge Classification model**, which is explicitly trained to classify each transaction edge as *Laundering* or *Normal* using ground-truth labels and a heavily weighted loss function.
 
-Both models are evaluated on the SAML-D (Synthetic Anti-Money Laundering Dataset) [2], which contains 28 distinct behavioral typologies and a realistic laundering rate of just **0.1%**. The central finding is that the **Supervised Edge Classification model offers dramatically superior operational efficiency** for front-line detection—achieving a **0.969 ROC AUC**, capturing approximately **80% of all laundering within the top 5% of flagged transactions**, and producing near-perfect class separation in the learned embedding space. The Self-Supervised model, while less precise, demonstrates unique value as a complementary discovery tool for detecting structurally anomalous typologies (e.g., Smurfing) without any dependence on historical labels.
+Both models are evaluated on the SAML-D (Synthetic Anti-Money Laundering Dataset) [2], which contains 28 distinct behavioral typologies and a realistic laundering rate of just **0.1%**. The central finding is that the **Supervised Edge Classification model offers dramatically superior operational efficiency** for front-line detection—achieving a **0.963 ROC AUC**, capturing approximately **78% of all laundering within the top 5% of flagged transactions**, and producing near-perfect class separation in the learned embedding space. The Self-Supervised model, while less precise, demonstrates unique value as a complementary discovery tool for detecting structurally anomalous typologies (e.g., Smurfing) without any dependence on historical labels.
 
 ---
 
@@ -68,7 +68,7 @@ The 50/30/20 split of training edges is architecturally critical. **Message Pass
 
 ## 3. Feature Engineering
 
-A central contribution of this work is the extensive, domain-informed feature engineering pipeline implemented in `initial_exp.ipynb`. Raw SAML-D records were transformed into dense, semantically rich node feature vectors.
+A central contribution of this work is the extensive, domain-informed feature engineering pipeline implemented in `Data_Preparation.ipynb`. Raw SAML-D records were transformed into dense, semantically rich node feature vectors.
 
 ### 3.1. Customer Node Features (123 Dimensions)
 
@@ -143,16 +143,16 @@ The GNN output $x^{\text{GNN}}$ captures purely *structural/neighborhood* inform
 
 The solution is a manual residual connection that additively combines the GNN output with the original linear projection:
 
-$$z_c = \text{LayerNorm}(x_c^{\text{GNN}} + x_c^{\text{proj}})$$
-$$z_t = \text{LayerNorm}(x_t^{\text{GNN}} + x_t^{\text{proj}})$$
+$$z_c = x_c^{\text{GNN}} + x_c^{\text{proj}}$$
+$$z_t = x_t^{\text{GNN}} + x_t^{\text{proj}}$$
 
 ```python
 # Residual: structure (GNN) + intrinsic features (projection)
-z_cust = self.norm_cust(x_gnn2['customer'] + x_cust_proj)
-z_tx   = self.norm_tx(x_gnn2['transaction'] + x_tx_proj)
+z_cust = x_gnn2['customer'] + x_cust_proj
+z_tx   = x_gnn2['transaction'] + x_tx_proj
 ```
 
-This guarantees that even a completely isolated node retains a meaningful embedding derived from its intrinsic features. The `LayerNorm` stabilizes training across the heterogeneous node populations.
+This guarantees that even a completely isolated node retains a meaningful embedding derived from its intrinsic features. The Supervised model additionally wraps this sum in `LayerNorm` for training stability — see Section 4.3.
 
 **What the Embeddings Capture:**
 The resulting $z_c$ and $z_t$ vectors encode a fusion of:
@@ -192,11 +192,11 @@ A critical implementation detail for fair evaluation: during test-time inference
 
 **Strengths:**
 - Requires zero labels, making it viable in label-scarce environments.
-- Excels at detecting crimes with *unnatural graph shapes* (e.g., Smurfing creates high-degree "star" patterns, achieving ~80% AUC on this typology).
+- Excels at detecting crimes with *unnatural graph shapes* (e.g., Smurfing creates high-degree "star" patterns, achieving ~91% AUC on this typology).
 
 **Limitations:**
 - Fails on **"Structural Mimicry"**: when criminal flows intentionally replicate legitimate patterns (e.g., Stacked Bipartite mimicking payroll), the model cannot distinguish "good" from "bad" twins.
-- Fails on **structurally simple crimes**: Cash Withdrawal creates a single edge, which is topologically identical to a legitimate purchase (~53% AUC, essentially random).
+- Fails on **structurally simple crimes**: Cash Withdrawal creates a single edge, which is topologically identical to a legitimate purchase (~44% AUC, below random chance).
 - Generates high false positive rates, as it flags *all* structural anomalies regardless of criminal intent.
 
 ### 4.3. Supervised Edge Classification Model (Primary Engine)
@@ -264,7 +264,7 @@ This weight tells the loss function: *"Missing one laundering transaction is as 
 
 **Strengths:**
 - Perfect class separation in the learned embedding space.
-- Exceptionally high recall at low alert budgets (~80% recall in top 5%).
+- Exceptionally high recall at low alert budgets (~78% recall in top 5%).
 - Robust generalization to cold-start customers via residual connections.
 
 **Limitations:**
@@ -301,11 +301,11 @@ In a real-world AML pipeline, compliance teams operate under a fixed **alert bud
 | 0.1% | ~656 | 23% | 0% |
 | 0.5% | ~3,282 | 39% | 1% |
 | 1% | ~6,565 | 49% | 3% |
-| **5%** | **~32,829** | **~80%** | 22% |
+| **5%** | **~32,829** | **~78%** | 22% |
 | 10% | ~65,658 | 91% | 24% |
 | 30% | ~196,974 | ~100% | ~48% |
 
-**Key Insight:** The Supervised model captures **approximately 80% of all laundering transactions by reviewing just the top 5% of alerts**. The Self-Supervised model requires reviewing the **top 50%** to achieve comparable recall—an operationally impractical budget. The Self-Supervised model's top-K is polluted with "weird but legal" transactions (structural anomalies that are not criminal).
+**Key Insight:** The Supervised model captures **approximately 78% of all laundering transactions by reviewing just the top 5% of alerts**. The Self-Supervised model requires reviewing the **top 50%** to achieve comparable recall—an operationally impractical budget. The Self-Supervised model's top-K is polluted with "weird but legal" transactions (structural anomalies that are not criminal).
 
 ![alt text](image-1.png)
 
@@ -316,17 +316,21 @@ The models exhibit dramatically different detection sensitivities across launder
 | Typology | Count | Supervised AUC | Self-Supervised AUC | Winner |
 |---|---|---|---|---|
 | Smurfing | 81 | ~0.99 | **~0.91** | Sup (but Self-Sup is strong) |
-| Fan-Out | 92 | ~0.97 | ~0.74 | Supervised |
-| Fan-In | 47 | ~0.97 | ~0.74 | Supervised |
-| Stacked Bipartite | 84 | ~0.94 | ~0.65 | Supervised |
+| Deposit-Send | 68 | ~0.99 | ~0.79 | Supervised |
+| Fan Out | 46 | ~0.97 | ~0.77 | Supervised |
+| Layered Fan-In | 47 | ~0.97 | ~0.74 | Supervised |
+| Layered Fan Out | 46 | ~0.96 | ~0.72 | Supervised |
+| Gather-Scatter | 41 | ~0.95 | ~0.71 | Supervised |
+| Structuring | 173 | ~0.95 | ~0.70 | Supervised |
+| Stacked Bipartite | 84 | ~0.93 | ~0.65 | Supervised |
+| Other (grouped <40) | 105 | ~0.95 | ~0.57 | Supervised |
 | Cash Withdrawal | 139 | ~0.97 | **~0.44** | Supervised |
-| Other (grouped <40) | 105 | ~0.95 | Variable | Supervised |
 
 **Critical Observations:**
-- The **Supervised model achieves uniformly high AUC (0.94–0.99) across all typologies**, demonstrating that label-driven learning generalizes well within the SAML-D distribution.
-- The **Self-Supervised model exhibits massive variance** (0.44–0.80 AUC), with performance directly correlated to the *structural distinctiveness* of the typology:
+- The **Supervised model achieves uniformly high AUC (0.93–0.99) across all typologies**, demonstrating that label-driven learning generalizes well within the SAML-D distribution.
+- The **Self-Supervised model exhibits massive variance** (0.44–0.91 AUC), with performance directly correlated to the *structural distinctiveness* of the typology:
   - **Smurfing (~0.91 AUC):** Creates characteristic "star" topologies (many small transactions from many accounts converging on one), which are highly anomalous structurally.
-  - **Cash Withdrawal (~0.44 AUC, essentially random):** Generates a single edge—topologically indistinguishable from a legitimate purchase. The self-supervised model has no structural signal to exploit.
+  - **Cash Withdrawal (~0.44 AUC, below random chance):** Generates a single edge—topologically indistinguishable from a legitimate purchase. The self-supervised model has no structural signal to exploit.
   - **Stacked Bipartite (~0.65 AUC):** Mimics legitimate payroll patterns, exposing the **Structural Mimicry Barrier**—the fundamental limitation of self-supervised approaches.
 
 ![alt text](image-3.png)
@@ -355,6 +359,14 @@ To quantify the complementarity of the two models, we analyzed the overlap in th
 - **Supervised-Only detections:** Pattern-matched crimes that look structurally normal but were flagged by label-driven classification (e.g., structurally mimetic typologies).
 - **Self-Supervised-Only detections:** Structurally anomalous transactions that the supervised model missed—potential novel typologies or adversarial behaviors not represented in the training labels.
 
+| Alert Subset (Top 1% = 6,565 alerts) | Alerts | Launderers Found | Precision |
+|---|---|---|---|
+| Intersection (Both models) | 248 | 20 | 8.1% |
+| Supervised Only | 6,317 | 388 | 6.1% |
+| Self-Supervised Only | 6,317 | 4 | 0.1% |
+
+The intersection is the highest-confidence tier: transactions flagged by both systems carry an 8.1% precision—more than 80× above the base rate. The Supervised model's unique detections (6.1% precision) vastly outnumber the Self-Supervised model's unique detections (0.1% precision), confirming its role as the primary engine. The Self-Supervised-Only detections, while few in number, represent structurally anomalous activity that the supervised model has not learned to recognize.
+
 ---
 
 ## 6. Operational Impact & Deployment Strategy
@@ -362,7 +374,7 @@ To quantify the complementarity of the two models, we analyzed the overlap in th
 The complementary strengths and weaknesses of the two models naturally suggest a **dual-tiered AML pipeline**:
 
 ### Tier 1: Primary Alert Generation (Supervised Model)
-The Supervised Edge Classification model serves as the front-line, high-throughput engine. With a 0.969 AUC and the ability to capture ~80% of laundering within a 5% alert budget, it delivers:
+The Supervised Edge Classification model serves as the front-line, high-throughput engine. With a 0.963 AUC and the ability to capture ~78% of laundering within a 5% alert budget, it delivers:
 - **Massive reduction in false positive alert fatigue** compared to rule-based systems.
 - **Automated blocking** of known laundering typologies with high confidence.
 - **Scalable real-time scoring** via the optimized batched inference pipeline.
@@ -379,7 +391,7 @@ The Self-Supervised model operates periodically as a discovery mechanism:
 |---|---|---|
 | **What it detects** | Known patterns from labels | Structural anomalies |
 | **Precision** | High (low false positives) | Low (flags all anomalies) |
-| **Recall @ 5%** | ~80% | Low |
+| **Recall @ 5%** | ~78% | Low |
 | **Novel typology detection** | ✗ Cannot find unknowns | ✓ Designed for unknowns |
 | **Structural mimicry** | ✓ Handles via labels | ✗ Fails (mimicry barrier) |
 | **Label dependency** | ✓ Requires labels | ✗ Label-free |
@@ -389,7 +401,7 @@ The Self-Supervised model operates periodically as a discovery mechanism:
 
 ## 7. Conclusions
 
-This project demonstrates that the choice between self-supervised and supervised GNN architectures for AML is not binary but complementary. The **Supervised Edge Classification model** is the unambiguous winner for primary detection: its concatenation-based decoder, combined with aggressively weighted BCE loss, achieves near-perfect discrimination (0.969 AUC) and operationally viable recall at practical alert budgets. The **Self-Supervised Link Prediction model** retains essential value as a discovery tool, particularly for typologies with distinctive structural signatures.
+This project demonstrates that the choice between self-supervised and supervised GNN architectures for AML is not binary but complementary. The **Supervised Edge Classification model** is the unambiguous winner for primary detection: its concatenation-based decoder, combined with aggressively weighted BCE loss, achieves near-perfect discrimination (0.963 AUC) and operationally viable recall at practical alert budgets. The **Self-Supervised Link Prediction model** retains essential value as a discovery tool, particularly for typologies with distinctive structural signatures.
 
 The key architectural insight is that **geometry drives self-supervised detection**: the model excels when criminal behavior creates unnatural graph shapes (Smurfing ≈ star patterns) but fails when crime mimics legitimate structure (Cash Withdrawal ≈ single edge, Stacked Bipartite ≈ payroll). Supervised learning transcends this limitation by directly encoding the concept of "guilt" into the embedding space.
 
