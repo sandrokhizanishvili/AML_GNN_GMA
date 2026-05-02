@@ -282,15 +282,15 @@ All results are reported on the **out-of-time Test Window (August 2023)**, compr
 
 | Metric | Supervised | Self-Supervised |
 |---|---|---|
-| **ROC AUC** | **0.969** | 0.800* |
-| **Avg. Precision (AP)** | High | Low |
-| **MCC (@ optimal threshold)** | Reported | — |
+| **ROC AUC** | **0.963** | 0.669* |
+| **Avg. Precision (AP)** | 0.144 | 0.006 |
+| **MCC (@ optimal threshold)** | 0.261 | — |
 
 *\*Self-supervised AUC varies significantly by typology (see Section 5.3).*
 
-The supervised model achieves a **0.969 ROC AUC**, demonstrating near-perfect discriminatory power. The self-supervised model achieves a respectable but substantially lower global AUC, as its structural anomaly scores correlate only partially with actual laundering labels.
+The supervised model achieves a **0.963 ROC AUC**, demonstrating near-perfect discriminatory power. The self-supervised model achieves a respectable but substantially lower global AUC, as its structural anomaly scores correlate only partially with actual laundering labels.
 
-![Insert ROC Curve Comparison here](path/to/roc_curves.png)
+![alt text](image.png)
 
 ### 5.2. Operational Efficiency — Recall @ Top K
 
@@ -298,16 +298,16 @@ In a real-world AML pipeline, compliance teams operate under a fixed **alert bud
 
 | Alert Budget (Top K%) | Alerts Generated | Supervised Recall | Self-Supervised Recall |
 |---|---|---|---|
-| 0.1% | ~656 | High | Low |
-| 0.5% | ~3,283 | High | Low |
-| 1% | ~6,566 | High | Moderate |
-| **5%** | **~32,829** | **~80%** | Low |
-| 10% | ~65,658 | Very High | Moderate |
-| 30% | ~196,975 | ~100% | ~80% |
+| 0.1% | ~656 | 23% | 0% |
+| 0.5% | ~3,282 | 39% | 1% |
+| 1% | ~6,565 | 49% | 3% |
+| **5%** | **~32,829** | **~80%** | 22% |
+| 10% | ~65,658 | 91% | 24% |
+| 30% | ~196,974 | ~100% | ~48% |
 
-**Key Insight:** The Supervised model captures **approximately 80% of all laundering transactions by reviewing just the top 5% of alerts**. The Self-Supervised model requires reviewing the **top 30–40%** to achieve comparable recall—an operationally impractical budget. The Self-Supervised model's top-K is polluted with "weird but legal" transactions (structural anomalies that are not criminal).
+**Key Insight:** The Supervised model captures **approximately 80% of all laundering transactions by reviewing just the top 5% of alerts**. The Self-Supervised model requires reviewing the **top 50%** to achieve comparable recall—an operationally impractical budget. The Self-Supervised model's top-K is polluted with "weird but legal" transactions (structural anomalies that are not criminal).
 
-![Insert Recall @ Top K Bar Chart here](path/to/recall_at_k.png)
+![alt text](image-1.png)
 
 ### 5.3. Typology-Specific Sensitivity
 
@@ -315,21 +315,21 @@ The models exhibit dramatically different detection sensitivities across launder
 
 | Typology | Count | Supervised AUC | Self-Supervised AUC | Winner |
 |---|---|---|---|---|
-| Smurfing | Variable | ~0.97 | **~0.80** | Sup (but Self-Sup is strong) |
-| Fan-Out | Variable | ~0.97 | ~0.70 | Supervised |
-| Fan-In | Variable | ~0.97 | ~0.65 | Supervised |
-| Stacked Bipartite | Variable | ~0.97 | ~0.55 | Supervised |
-| Cash Withdrawal | Variable | ~0.97 | **~0.53** | Supervised |
-| Other (grouped <40) | Variable | ~0.97 | Variable | Supervised |
+| Smurfing | 81 | ~0.99 | **~0.91** | Sup (but Self-Sup is strong) |
+| Fan-Out | 92 | ~0.97 | ~0.74 | Supervised |
+| Fan-In | 47 | ~0.97 | ~0.74 | Supervised |
+| Stacked Bipartite | 84 | ~0.94 | ~0.65 | Supervised |
+| Cash Withdrawal | 139 | ~0.97 | **~0.44** | Supervised |
+| Other (grouped <40) | 105 | ~0.95 | Variable | Supervised |
 
 **Critical Observations:**
-- The **Supervised model achieves uniformly high AUC (~0.97) across all typologies**, demonstrating that label-driven learning generalizes well within the SAML-D distribution.
-- The **Self-Supervised model exhibits massive variance** (0.53–0.80 AUC), with performance directly correlated to the *structural distinctiveness* of the typology:
-  - **Smurfing (~0.80 AUC):** Creates characteristic "star" topologies (many small transactions from many accounts converging on one), which are highly anomalous structurally.
-  - **Cash Withdrawal (~0.53 AUC, essentially random):** Generates a single edge—topologically indistinguishable from a legitimate purchase. The self-supervised model has no structural signal to exploit.
-  - **Stacked Bipartite (~0.55 AUC):** Mimics legitimate payroll patterns, exposing the **Structural Mimicry Barrier**—the fundamental limitation of self-supervised approaches.
+- The **Supervised model achieves uniformly high AUC (0.94–0.99) across all typologies**, demonstrating that label-driven learning generalizes well within the SAML-D distribution.
+- The **Self-Supervised model exhibits massive variance** (0.44–0.80 AUC), with performance directly correlated to the *structural distinctiveness* of the typology:
+  - **Smurfing (~0.91 AUC):** Creates characteristic "star" topologies (many small transactions from many accounts converging on one), which are highly anomalous structurally.
+  - **Cash Withdrawal (~0.44 AUC, essentially random):** Generates a single edge—topologically indistinguishable from a legitimate purchase. The self-supervised model has no structural signal to exploit.
+  - **Stacked Bipartite (~0.65 AUC):** Mimics legitimate payroll patterns, exposing the **Structural Mimicry Barrier**—the fundamental limitation of self-supervised approaches.
 
-![Insert Typology Sensitivity Bar Chart here](path/to/typology_sensitivity.png)
+![alt text](image-3.png)
 
 ### 5.4. Embedding Space Visualization (UMAP)
 
@@ -339,13 +339,13 @@ Stratified UMAP projections of the learned 64-dimensional transaction embeddings
 - **Result:** Near-perfect separation. Laundering transactions (red) are pushed into a distinct, isolated cluster, far from the Normal (grey) mass.
 - **Interpretation:** The model has learned an explicit representation of "guilt"—the MLP decoder has reshaped the embedding space to maximize the margin between classes.
 
-![Insert Supervised UMAP Class Separation here](path/to/supervised_umap_class.png)
+![alt text](image-4.png)
 
 **Self-Supervised Model:**
 - **Result:** Significant overlap. Laundering transactions are scattered *within* the Normal clusters.
 - **Interpretation:** The model groups transactions by *structural similarity*, not by *criminal intent*. A money laundering transaction that structurally resembles a payroll will be embedded near payroll transactions, regardless of its illicit nature.
 
-![Insert Self-Supervised UMAP Class Separation here](path/to/self_supervised_umap_class.png)
+![alt text](image-5.png)
 
 ### 5.5. Model Overlap Analysis
 
