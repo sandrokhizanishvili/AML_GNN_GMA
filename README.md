@@ -103,8 +103,8 @@ AML_GNN_GMA/
 ├── xgboost_gfp_rwpe.ipynb                   # XGBoost — GFP + RWPE (non-graph baseline)
 ├── models_results_analysis.ipynb            # Aggregated results, plots, bootstrap CI, Top-K analysis
 │
-├── AML_GNN_Report_v2.md                     # Full project report (Markdown)
-├── AML_GNN_Presentation_v2.pptx             # Project presentation slides
+├── AML_GNN_Report.md                     # Full project report (Markdown)
+├── AML_GNN_Presentation.pptx             # Project presentation slides
 ├── .gitignore
 └── LICENSE
 ```
